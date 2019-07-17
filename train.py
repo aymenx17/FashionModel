@@ -5,12 +5,21 @@ import torch
 from torch.utils.data import DataLoader
 from model.net import FashionNet
 from load_dataset import custom_dset, collate_fn, denorm
+from focal_loss import *
 from torch.autograd import Variable
 import time
 import cv2
 import random
 from tensorboardX import SummaryWriter
 from utils import AverageMeter, accuracy
+
+'''
+We use the focal loss as cost function.
+
+'''
+
+
+
 
 writer = SummaryWriter(comment='_pretrain')
 
@@ -54,7 +63,8 @@ def eval_val(e, val_loader, crit, net):
 def train(epochs, net, train_loader, val_loader, optimizer,
           save_step):
 
-    crit = torch.nn.CrossEntropyLoss()
+    #crit = torch.nn.CrossEntropyLoss()
+    crit = FocalLoss(gamma=2, alpha=0.25)
     train_loss = AverageMeter()
 
     for e in range(epochs):
@@ -73,7 +83,7 @@ def train(epochs, net, train_loader, val_loader, optimizer,
             # run input through the network
             preds = net(img)
 
-            # CrossEntropyLoss
+            # apply loss function
             loss = crit(preds, labels)
 
             loss.backward()
@@ -97,9 +107,6 @@ def train(epochs, net, train_loader, val_loader, optimizer,
             torch.save(state, './checkpoints/pnet_{}.pth'.format(e + 1))
 
 def main():
-
-
-
 
     # Load dataset
     trainset = custom_dset('train_pretrain')
