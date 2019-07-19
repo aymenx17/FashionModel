@@ -5,7 +5,6 @@ import torch
 from torch.utils.data import DataLoader
 from model.net import FashionNet
 from load_dataset import custom_dset, collate_fn, denorm
-from focal_loss import *
 from torch.autograd import Variable
 import time
 import cv2
@@ -14,18 +13,20 @@ from tensorboardX import SummaryWriter
 from utils import AverageMeter, accuracy
 
 '''
-We use the focal loss as cost function.
+The objective of this module is to finetune the previously trained network, on a new set of classes, on which
+there hasn't been trained before. We apply the concept of transfer leaning, so it is not required to train
+the whole network from scratch for the new task, instead we transfer the knowledge (weight parameters) and only
+train for instance the last layer of the network. Thefore the principle behind is to share parameters
+for different tasks; in this context tasks means different set of classes.
 
 '''
 
+writer = SummaryWriter(comment='finetune')
 
-
-
-writer = SummaryWriter(comment='_pretrain')
-
-out_path = './data/show_validation'
+out_path = './data/finetune_show'
 if not os.path.isdir(out_path):
     os.mkdir(out_path)
+
 
 def eval_val(e, val_loader, crit, net):
 
@@ -46,10 +47,11 @@ def eval_val(e, val_loader, crit, net):
             val_loss.update(loss.item(), imgs.size()[0])
 
             if it == 0:
-                # save to disk first batch of results for every epoch
+                # save a batch of results to disk
                 for i,im in enumerate(imgs):
                     im = im.data.cpu().numpy()
                     im = denorm(im.transpose(1,2,0))[...,::-1]
+
 
                     _, inds = torch.max(preds, 1)
                     pred = label_map[inds[i].item()]
@@ -60,11 +62,10 @@ def eval_val(e, val_loader, crit, net):
 
     return val_loss
 
-def train(epochs, net, train_loader, val_loader, optimizer,
-          save_step):
+
+def finetune(epochs, net, train_loader, val_loader, optimizer, save_step):
 
     crit = torch.nn.CrossEntropyLoss()
-    #crit = FocalLoss(gamma=2, alpha=0.25)
     train_loss = AverageMeter()
 
     for e in range(epochs):
@@ -83,7 +84,7 @@ def train(epochs, net, train_loader, val_loader, optimizer,
             # run input through the network
             preds = net(img)
 
-            # apply loss function
+            # CrossEntropyLoss
             loss = crit(preds, labels)
 
             loss.backward()
@@ -103,36 +104,50 @@ def train(epochs, net, train_loader, val_loader, optimizer,
         if (e + 1) % save_step == 0:
             if not os.path.exists('./checkpoints'):
                 os.mkdir('./checkpoints')
-            state = {'net': net.state_dict(), 'label_map': train_loader.dataset.label_map }
-            torch.save(state, './checkpoints/pnet_{}.pth'.format(e + 1))
+            torch.save(net.state_dict(), './checkpoints/finetuned_net_{}.pth'.format(e + 1))
+
 
 def main():
 
-    # Load dataset
-    trainset = custom_dset('train_pretrain')
-    valset = custom_dset('val_pretrain')
-    num_classes = len(trainset.label_map)
+    # Collect arguments (if any)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-m', '--model', type=str, default=None, help='path to the model')
+    args = parser.parse_args()
 
-    print('Lenght of the training dataset: {}'.format(len(trainset)))
-    print('Lenght of the validation dataset: {}'.format(len(valset)))
-    print('List of {} classes for training: {}'.format(num_classes, [k for k,_ in trainset.label_map.items()]))
+    # get the current working directory
+    root = os.getcwd()
 
-    train_loader = DataLoader(trainset, batch_size=28, shuffle=True, collate_fn=collate_fn, num_workers=4)
-    val_loader = DataLoader(valset, batch_size=28, shuffle=False, collate_fn=collate_fn, num_workers=4)
+    train_finetune = custom_dset('train_finetune')
+    trainval_finetune = custom_dset('val_finetune')
 
-    # FashionNet model
-    net = FashionNet(num_classes)
+    print('Train Dataset for finetuning of size: {}'.format(len(train_finetune)))
+    print('Validation Dataset for finetuning of size: {}'.format(len(trainval_finetune)))
+    train_loader = DataLoader(train_finetune, batch_size=28, shuffle=True, collate_fn=collate_fn, num_workers=4)
+    trainval_loader = DataLoader(trainval_finetune, batch_size=28, shuffle=False, collate_fn=collate_fn, num_workers=4)
+
+    # number of classes we are going to finetune over
+    num_classes = len(train_finetune.label_map)
+
+    # load model
+    model_path = os.path.join(root, 'checkpoints', args.model)
+
+    model = torch.load(model_path)
+    label_map = model['label_map']
+    net = FashionNet(len(label_map))
+    net.load_state_dict(model['net'])
+    # replace the classifier
+    net.fc = torch.nn.Linear(2048, num_classes)
     net = net.cuda()
+
+
     # optimizer
     optimizer = torch.optim.Adam(net.parameters(), lr=1e-4)
 
-
-    train(epochs=11, net=net, train_loader=train_loader, val_loader=val_loader, optimizer=optimizer,
+    finetune(epochs=11, net=net, train_loader=train_loader, val_loader=trainval_loader, optimizer=optimizer,
                save_step=1)
 
     writer.close()
 
 
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
