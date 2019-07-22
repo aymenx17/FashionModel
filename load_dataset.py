@@ -12,7 +12,10 @@ Notes on the small fashion dataset:
 The class 'Perfume and Body Mist' is present only in the test set since all examples from this class correspond an odd year (2017).
 
 There is a similar problem during finetuning, where training set has 88 classes and test set has 99 classes.
-Therefore the classes not in common between the two sets are unused. 
+Therefore the classes not in common between the two sets are unused.
+
+
+
 '''
 
 

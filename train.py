@@ -18,9 +18,6 @@ We use the focal loss as cost function.
 
 '''
 
-
-
-
 writer = SummaryWriter(comment='_pretrain')
 
 out_path = './data/show_validation'

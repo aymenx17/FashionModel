@@ -18,8 +18,7 @@ def test(net, test_loader):
     losses = AverageMeter()
 
     class_dict = {v:{1: 0, 5:0} for _,v in test_loader.dataset.label_map.items()}
-    acc = AverageAcc(class_dict)
-
+    accuracy = AverageAcc(class_dict)
 
 
     criterion = FocalLoss(gamma=2, alpha=0.25)
@@ -37,14 +36,14 @@ def test(net, test_loader):
 
 
         # measure accuracy and record loss
-        acc.accuracy(preds.data, labels.data, topk=(1, 5))
+        accuracy.update(preds.data, labels.data, topk=(1, 5))
         losses.update(loss.item(), imgs.size(0))
 
         bar.update()
 
     bar.close()
 
-    topk_dict, top1, top5 = acc.average()
+    topk_dict, top1, top5 = accuracy()
     return top1, top5, topk_dict
 
 
@@ -77,7 +76,7 @@ def main():
     top1, top5, topk_dict = test(net, test_loader)
     label_dict = { v:k for k,v in label_map.items()}
 
-    print('Top1: {} and Top5: {}\n\n'.format(round(top1, 1), round(top5, 1)))
+    print('Top1: {} and Top5: {}\n\n'.format(round(top1, 2), round(top5, 2)))
 
     # print directory of top1 and top5 per class
     for c,v in topk_dict.items():
