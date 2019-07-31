@@ -11,7 +11,7 @@ import time
 import cv2
 import random
 from tensorboardX import SummaryWriter
-from utils import AverageMeter, accuracy
+from utils import AverageMeter
 
 '''
 We use the focal loss as cost function.
@@ -24,14 +24,17 @@ out_path = './data/show_validation'
 if not os.path.isdir(out_path):
     os.mkdir(out_path)
 
-def eval_val(e, val_loader, crit, net):
+def eval_val(e, val_loader, net):
 
     val_loss = AverageMeter()
     label_map = val_loader.dataset.label_map
     label_map = { v:k for k,v in label_map.items()}
 
+    # sometimes is useful to use different criterion for validation
+    crit = torch.nn.CrossEntropyLoss()
+
     with torch.no_grad():
-        for it, (imgs, lables) in enumerate(val_loader):
+        for it, (imgs, lables, img_ids) in enumerate(val_loader):
 
 
             imgs = imgs.cuda()
@@ -57,10 +60,19 @@ def eval_val(e, val_loader, crit, net):
 
     return val_loss
 
+
+def get_weights(dset):
+    freq = dset.freq
+    len_dset = len(dset)
+    w = [1 -  (freq[c]/len_dset) for c in dset.label_map.keys()]
+    return torch.FloatTensor(w).cuda()
+
+
 def train(epochs, net, train_loader, val_loader, optimizer,
           save_step):
 
-    crit = torch.nn.CrossEntropyLoss()
+    weights = get_weights(train_loader.dataset)
+    crit = torch.nn.CrossEntropyLoss(weights)
     #crit = FocalLoss(gamma=2, alpha=0.25)
     train_loss = AverageMeter()
 
@@ -70,12 +82,11 @@ def train(epochs, net, train_loader, val_loader, optimizer,
         net.train()
 
         # training stage
-        for it, (img, labels) in enumerate(train_loader):
+        for it, (img, labels, img_ids) in enumerate(train_loader):
             optimizer.zero_grad()
 
             img = Variable(img.cuda())
             labels = Variable(labels.cuda())
-
 
             # run input through the network
             preds = net(img)
@@ -90,7 +101,7 @@ def train(epochs, net, train_loader, val_loader, optimizer,
 
             if (it + 1) % 30 == 0:
                 net.eval()
-                val_loss  = eval_val(e, val_loader, crit, net)
+                val_loss  = eval_val(e, val_loader, net)
                 print('Epoch: {} Training loss: {} Validation loss: {} Step (it/tot): {}/{}'.format((e + 1), round(train_loss.avg, 3), round(val_loss.avg, 3), it, len(train_loader)))
                 tot_iter = (e*len(train_loader) + it)
                 writer.add_scalars('losses',{ 'train_loss': train_loss.avg, 'validation_loss': val_loss.avg}, tot_iter)

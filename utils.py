@@ -5,7 +5,7 @@ import numpy as np
 
 class AverageAcc(object):
     '''
-    Stores variables like (sum and count), and computes top1 and top5 accuracies per class. 
+    Stores variables like (sum and count), and computes top1 and top5 accuracies per class.
 
 
     {0: {1: 0, 5: 0},
@@ -32,8 +32,8 @@ class AverageAcc(object):
 
     '''
 
-    def __init__(self, cdict):
-        self.acc = cdict
+    def __init__(self, label_map):
+        self.acc = {v:{1: 0, 5:0} for _,v in label_map.items()}
         self.reset()
 
     def __call__(self, *input, **kwargs):

@@ -10,7 +10,8 @@ import time
 import cv2
 import random
 from tensorboardX import SummaryWriter
-from utils import AverageMeter, accuracy
+from utils import AverageMeter
+from focal_loss import *
 
 '''
 The objective of this module is to finetune the previously trained network, on a new set of classes, on which
@@ -23,7 +24,7 @@ for different tasks; in this context tasks means different set of classes.
 
 writer = SummaryWriter(comment='finetune')
 
-out_path = './data/finetune_show'
+out_path = './data/show_finetune'
 if not os.path.isdir(out_path):
     os.mkdir(out_path)
 
@@ -33,9 +34,10 @@ def eval_val(e, val_loader, crit, net):
     val_loss = AverageMeter()
     label_map = val_loader.dataset.label_map
     label_map = { v:k for k,v in label_map.items()}
+    crit = torch.nn.CrossEntropyLoss()
 
     with torch.no_grad():
-        for it, (imgs, lables) in enumerate(val_loader):
+        for it, (imgs, lables, img_ids) in enumerate(val_loader):
 
 
             imgs = imgs.cuda()
@@ -46,7 +48,7 @@ def eval_val(e, val_loader, crit, net):
             loss = crit(preds, labels)
             val_loss.update(loss.item(), imgs.size()[0])
 
-            if it == 0:
+            if it % 100 == 0 and e > 1:
                 # save a batch of results to disk
                 for i,im in enumerate(imgs):
                     im = im.data.cpu().numpy()
@@ -57,15 +59,23 @@ def eval_val(e, val_loader, crit, net):
                     pred = label_map[inds[i].item()]
                     gt_label = label_map[labels[i].item()]
 
-                    fname = 'Epoch:' + str(e + 1) +  'Gt:' + gt_label + 'Pred:' + pred + '.jpg'
+                    fname = 'Epoch:' + str(e + 1) + '__' + str(img_ids[i]) + '_Gt:' + gt_label + 'Pred:' + pred + '.jpg'
                     cv2.imwrite(os.path.join(out_path, fname),  im)
 
     return val_loss
 
+def get_weights(dset):
+    freq = dset.freq
+    len_dset = len(dset)
+    w = [1 -  (freq[c]/len_dset) for c in dset.label_map.keys()]
+    return torch.FloatTensor(w).cuda()
 
 def finetune(epochs, net, train_loader, val_loader, optimizer, save_step):
 
-    crit = torch.nn.CrossEntropyLoss()
+
+    #crit = FocalLoss(gamma=2, alpha=0.25)
+    weights = get_weights(train_loader.dataset)
+    crit = nn.CrossEntropyLoss(weights)
     train_loss = AverageMeter()
 
     for e in range(epochs):
@@ -74,7 +84,7 @@ def finetune(epochs, net, train_loader, val_loader, optimizer, save_step):
         net.train()
 
         # training stage
-        for it, (img, labels) in enumerate(train_loader):
+        for it, (img, labels, img_ids) in enumerate(train_loader):
             optimizer.zero_grad()
 
             img = Variable(img.cuda())
@@ -104,7 +114,8 @@ def finetune(epochs, net, train_loader, val_loader, optimizer, save_step):
         if (e + 1) % save_step == 0:
             if not os.path.exists('./checkpoints'):
                 os.mkdir('./checkpoints')
-            torch.save(net.state_dict(), './checkpoints/finetuned_net_{}.pth'.format(e + 1))
+            state = {'net': net.state_dict(), 'label_map': train_loader.dataset.label_map }
+            torch.save(state, './checkpoints/finetuned_{}.pth'.format(e + 1))
 
 
 def main():
@@ -134,8 +145,8 @@ def main():
     model = torch.load(model_path)
     label_map = model['label_map']
     net = FashionNet(len(label_map))
-    net.load_state_dict(model['net'])
-    # replace the classifier
+    # net.load_state_dict(model['net'])
+    # # replace the classifier
     net.fc = torch.nn.Linear(2048, num_classes)
     net = net.cuda()
 
