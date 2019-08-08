@@ -6,7 +6,6 @@ from model.resnet import resnet50
 
 
 
-
 class FashionNet(nn.Module):
 
     def __init__(self, num_classes=20):

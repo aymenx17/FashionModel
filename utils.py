@@ -64,6 +64,7 @@ class AverageAcc(object):
                 self.count[c][k] += sum(mt).item()
 
 
+
     def accuracy(self):
 
         avg1, avg5 = [], []

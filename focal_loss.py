@@ -34,3 +34,4 @@ class FocalLoss(nn.Module):
         loss = -1 * (1 - pt)**self.gamma * logpt
         if self.size_average: return loss.mean()
         else: return loss.sum()
+

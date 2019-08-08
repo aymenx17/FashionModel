@@ -68,14 +68,14 @@ def get_weights(dset):
     freq = dset.freq
     len_dset = len(dset)
     w = [1 -  (freq[c]/len_dset) for c in dset.label_map.keys()]
-    return torch.FloatTensor(w).cuda()
+    return w
 
 def finetune(epochs, net, train_loader, val_loader, optimizer, save_step):
 
-
-    #crit = FocalLoss(gamma=2, alpha=0.25)
-    weights = get_weights(train_loader.dataset)
-    crit = nn.CrossEntropyLoss(weights)
+    w = get_weights(train_loader.dataset)
+    crit = FocalLoss(gamma=4, alpha=w)
+    #weights = torch.FloatTensor(w).cuda()
+    # crit = nn.CrossEntropyLoss(weights)
     train_loss = AverageMeter()
 
     for e in range(epochs):
@@ -158,6 +158,7 @@ def main():
                save_step=1)
 
     writer.close()
+
 
 
 if __name__ == '__main__':

@@ -56,7 +56,6 @@ def load_ids(dset=None, train_labels=None):
         common_fine = pickle.load(f)
 
 
-
     lids = []
     categs = []
     if train_labels == None:

@@ -11,7 +11,7 @@ import time
 import cv2
 import random
 from tensorboardX import SummaryWriter
-from utils import AverageMeter
+from utils import AverageMeter, AverageAcc
 
 '''
 We use the focal loss as cost function.
@@ -27,6 +27,8 @@ if not os.path.isdir(out_path):
 def eval_val(e, val_loader, net):
 
     val_loss = AverageMeter()
+    accuracy = AverageAcc(val_loader.dataset.label_map)
+
     label_map = val_loader.dataset.label_map
     label_map = { v:k for k,v in label_map.items()}
 
@@ -44,6 +46,7 @@ def eval_val(e, val_loader, net):
 
             loss = crit(preds, labels)
             val_loss.update(loss.item(), imgs.size()[0])
+            accuracy.update(preds.data, labels.data, topk=(1, 5))
 
             if it == 0:
                 # save to disk first batch of results for every epoch
@@ -57,24 +60,27 @@ def eval_val(e, val_loader, net):
 
                     fname = 'Epoch:' + str(e + 1) +  'Gt:' + gt_label + 'Pred:' + pred + '.jpg'
                     cv2.imwrite(os.path.join(out_path, fname),  im)
+        topk_dict, top1, top5 = accuracy()
 
-    return val_loss
+    return val_loss, top1
 
 
 def get_weights(dset):
     freq = dset.freq
     len_dset = len(dset)
     w = [1 -  (freq[c]/len_dset) for c in dset.label_map.keys()]
-    return torch.FloatTensor(w).cuda()
-
+    return w
 
 def train(epochs, net, train_loader, val_loader, optimizer,
           save_step):
 
-    weights = get_weights(train_loader.dataset)
-    crit = torch.nn.CrossEntropyLoss(weights)
-    #crit = FocalLoss(gamma=2, alpha=0.25)
+    w = get_weights(train_loader.dataset)
+    # weights = torch.FloatTensor(w).cuda()
+    # crit = torch.nn.CrossEntropyLoss(weights)
+    crit = FocalLoss(gamma=2, alpha=w)
     train_loss = AverageMeter()
+    best_top1 = 0.87
+    top1 = 0
 
     for e in range(epochs):
         print('*'* 100)
@@ -101,18 +107,20 @@ def train(epochs, net, train_loader, val_loader, optimizer,
 
             if (it + 1) % 30 == 0:
                 net.eval()
-                val_loss  = eval_val(e, val_loader, net)
+                val_loss, top1  = eval_val(e, val_loader, net)
                 print('Epoch: {} Training loss: {} Validation loss: {} Step (it/tot): {}/{}'.format((e + 1), round(train_loss.avg, 3), round(val_loss.avg, 3), it, len(train_loader)))
                 tot_iter = (e*len(train_loader) + it)
                 writer.add_scalars('losses',{ 'train_loss': train_loss.avg, 'validation_loss': val_loss.avg}, tot_iter)
                 net.train()
 
 
-        if (e + 1) % save_step == 0:
-            if not os.path.exists('./checkpoints'):
-                os.mkdir('./checkpoints')
-            state = {'net': net.state_dict(), 'label_map': train_loader.dataset.label_map }
-            torch.save(state, './checkpoints/pnet_{}.pth'.format(e + 1))
+            #if (e + 1) % save_step == 0:
+            if top1 > best_top1:
+                best_top1 = top1
+                if not os.path.exists('./checkpoints'):
+                    os.mkdir('./checkpoints')
+                state = {'net': net.state_dict(), 'label_map': train_loader.dataset.label_map }
+                torch.save(state, './checkpoints/pnet_{}_{}.pth'.format((e + 1), round(top1, 2)))
 
 def main():
 

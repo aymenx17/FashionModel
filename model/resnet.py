@@ -156,7 +156,6 @@ class ResNet(nn.Module):
 
     return x
 
-
 def resnet18(pretrained=False):
   """Constructs a ResNet-18 model.
   Args:
