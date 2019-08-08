@@ -44,7 +44,7 @@ The fashion images dataset contains images from an online product catalog.
 
 ##### Sample of the csv file
 
-![](https://github.com/aymenx17/detectAnomaly/blob/master/project_imgs/sample_csv.png)
+![](https://github.com/aymenx17/FashionModel/blob/master/project_imgs/sample_csv.png)
 
 As shown in the figure, each data example correspond to an id. As class label I use the fifth column category type
 (right before color column). In addition to categories and subcategories, extra metadata is provided with the dataset as well.  
@@ -57,7 +57,7 @@ There are 143 different article Types in this list, some have only a few example
 ##### Sample Visualizations
 
 Top 19 class training:
-![](https://github.com/aymenx17/detectAnomaly/blob/master/project_imgs/top20_results.png)
+![](https://github.com/aymenx17/FashionModel/blob/master/project_imgs/top20_results.png)
 
 Finetuning:
-![](https://github.com/aymenx17/detectAnomaly/blob/master/project_imgs/finetune_results.png)
+![](https://github.com/aymenx17/FashionModel/blob/master/project_imgs/finetune_results.png)
