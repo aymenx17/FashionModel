@@ -133,8 +133,8 @@ def main():
     print('Lenght of the validation dataset: {}'.format(len(valset)))
     print('List of {} classes for training: {}'.format(num_classes, [k for k,_ in trainset.label_map.items()]))
 
-    train_loader = DataLoader(trainset, batch_size=28, shuffle=True, collate_fn=collate_fn, num_workers=4)
-    val_loader = DataLoader(valset, batch_size=28, shuffle=False, collate_fn=collate_fn, num_workers=4)
+    train_loader = DataLoader(trainset, batch_size=1, shuffle=True, collate_fn=collate_fn, num_workers=4)
+    val_loader = DataLoader(valset, batch_size=1, shuffle=False, collate_fn=collate_fn, num_workers=4)
 
     # FashionNet model
     net = FashionNet(num_classes)

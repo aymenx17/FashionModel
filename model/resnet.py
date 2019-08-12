@@ -148,10 +148,10 @@ class ResNet(nn.Module):
 
     x = self.layer1(x)
     x = self.layer2(x)
-    x = self.layer3(x)
-    x = self.layer4(x)
-    x = self.avgpool(x)
-    x = x.view(x.size(0), -1)
+    # x = self.layer3(x)
+    # x = self.layer4(x)
+    # x = self.avgpool(x)
+    #x = x.view(x.size(0), -1)
     #x = self.fc(x)
 
     return x
